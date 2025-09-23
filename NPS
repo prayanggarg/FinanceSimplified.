@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>National Pension Scheme Guide</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The SPA is designed with a task-oriented, thematic structure. The 15 NPS questions are grouped into four logical categories: 'Getting Started', 'Account Management', 'Contributions & Claims', and 'Information & Services'. This structure helps users quickly find answers related to their specific goals. The primary interaction is a tab-based navigation system. Clicking a category tab reveals the relevant questions in an accordion format, which promotes progressive disclosure and prevents information overload. An introductory section provides context, and a donut chart visualizes the distribution of questions across these themes, giving a quick overview of common user concerns. A new 'Ask Gemini' section is included for users to ask free-form questions not covered in the static FAQ, adding dynamic, real-time knowledge retrieval and a powerful, personalized search experience. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Grouping of 15 NPS questions by theme. Goal: Show the thematic distribution of common user tasks. Viz/Presentation: Donut Chart (Chart.js/Canvas). Interaction: Hovering over chart segments highlights the theme and shows the count. Justification: Provides an immediate visual summary of the main areas of user interest, setting the context for the application's structure. Library: Chart.js.
+        - Report Info: Individual "How To" questions and their answers. Goal: Provide clear, step-by-step answers. Viz/Presentation: Accordion List (HTML/CSS/JS). Interaction: Clicking a question expands to reveal the answer. Justification: This is a standard and highly effective UI pattern for FAQs. It keeps the interface clean and allows users to scan questions easily and dive into the details of only those they are interested in, preventing information overload. Library/Method: Vanilla JS for toggle functionality.
+        - Report Info: Free-form NPS questions. Goal: Answer user questions beyond the predefined list. Viz/Presentation: Text input, a loading state, and a text output area for the answer and citations. Interaction: User types a question and clicks a button to get a response from the Gemini API. Justification: This adds a dynamic, powerful, and highly useful feature that enhances the app's utility significantly by offering real-time, grounded information. Library/Method: Gemini API via Fetch. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .tab-active {
+            border-bottom-color: #C0A080;
+            color: #A07D5A;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            border-bottom-color: transparent;
+            color: #7a7a7a;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .accordion-item.open .accordion-content {
+            max-height: 1000px;
+            transition: max-height 0.5s ease-in;
+        }
+        .accordion-arrow {
+            transition: transform 0.3s ease;
+        }
+        .accordion-item.open .accordion-arrow {
+            transform: rotate(180deg);
+        }
+        .chart-container {
+            position: relative; 
+            width: 100%; 
+            max-width: 350px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px; 
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+        <header class="text-center mb-10 md:mb-16">
+            <h1 class="text-3xl md:text-5xl font-bold text-[#A07D5A] mb-2">National Pension Scheme (NPS)</h1>
+            <p class="text-lg md:text-xl text-gray-600">Your Interactive Guide to Common "How-To" Questions</p>
+        </header>
+
+        <main>
+            <section id="overview" class="mb-12">
+                 <div class="bg-white rounded-xl shadow-lg p-6 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div class="text-left">
+                        <h2 class="text-2xl font-bold text-[#4A4A4A] mb-4">Understanding Your Pension</h2>
+                        <p class="text-gray-600 mb-4">
+                            The National Pension Scheme is a voluntary, long-term retirement savings plan in India. While it is a powerful tool for financial security, navigating its procedures can be complex. This guide breaks down the 15 most common "how-to" tasks into simple, manageable categories.
+                        </p>
+                        <p class="text-gray-600">
+                            Use the chart to see which topics people ask about most, then click the tabs below to find detailed, step-by-step answers to your specific questions. Our goal is to make managing your NPS account straightforward and stress-free.
+                        </p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="questionsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="faq-section" class="mb-12">
+                <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+                    <div class="border-b border-gray-200 mb-6">
+                        <nav id="tabs" class="-mb-px flex flex-wrap justify-center space-x-2 sm:space-x-4 md:space-x-8 text-sm sm:text-base" aria-label="Tabs">
+                        </nav>
+                    </div>
+
+                    <div id="tab-content">
+                    </div>
+                </div>
+            </section>
+
+            <section id="gemini-section">
+                <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+                    <h2 class="text-2xl font-bold text-[#4A4A4A] mb-4">✨ Ask Gemini: Get Instant Answers</h2>
+                    <p class="text-gray-600 mb-6">
+                        Have a question that's not in the guide? Type your query below and our AI assistant will find a grounded answer for you.
+                    </p>
+                    <div class="flex flex-col md:flex-row gap-4 mb-4">
+                        <textarea id="promptInput" class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C0A080] resize-none" rows="3" placeholder="e.g., How can I check my NPS claim status without a PRAN?"></textarea>
+                        <button id="submitButton" class="bg-[#A07D5A] text-white font-semibold py-3 px-6 rounded-lg hover:bg-[#C0A080] transition duration-300 focus:outline-none focus:ring-2 focus:ring-[#C0A080] shrink-0">
+                            Get Answer
+                        </button>
+                    </div>
+                    <div id="responseContainer" class="hidden">
+                        <div id="loading" class="text-center py-4 hidden">
+                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>
+                            <p class="text-gray-500">Fetching answer...</p>
+                        </div>
+                        <div id="responseOutput" class="p-4 border border-gray-200 rounded-lg bg-gray-50"></div>
+                        <div id="citationLinks" class="mt-4 text-sm text-gray-500"></div>
+                        <button id="copyButton" class="bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg mt-4 hover:bg-gray-300 transition duration-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                            Copy Answer
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-12 text-gray-500 text-sm">
+            <p>This is an informational tool. Always refer to the official NPS Trust or PFRDA for transactions.</p>
+        </footer>
+    </div>
+
+    <script>
+        const npsData = {
+            categories: [
+                {
+                    name: "Getting Started",
+                    id: "getting-started",
+                    questions: [
+                        {
+                            q: "How to open a new NPS account online?",
+                            a: "Opening an NPS account online is the quickest way to start your retirement savings. First, visit the official <a href='https://enps.nsdl.com' target='_blank' class='text-blue-600 hover:underline'>eNPS portal</a>. You'll need your Aadhaar card linked to your mobile number or your PAN card and bank account details for e-KYC. The process involves filling out a digital registration form with your personal and banking information. After a few steps, you'll upload a scanned photograph and signature. Once your details are verified and your first contribution is made online, your Permanent Retirement Account Number (PRAN) will be generated instantly, and your account will become active."
+                        },
+                        {
+                            q: "How to get my Permanent Retirement Account Number (PRAN)?",
+                            a: "Your Permanent Retirement Account Number (PRAN) is the unique 12-digit number for your NPS account. It is generated automatically when you complete your registration. If you've opened an account online, your PRAN is displayed on the screen and sent to your registered email and mobile number. For accounts opened offline, the PRAN is typically issued within a few days of submitting your form. If you lose your PRAN, you can recover it by visiting the <a href='https://cra-nsdl.com' target='_blank' class='text-blue-600 hover:underline'>CRA website</a>. Use the 'Forgot Password' or 'Retrieve PRAN' option and provide your personal details, such as your name, date of birth, and email ID, to receive the PRAN details on your registered contact information."
+                        },
+                        {
+                            q: "How to make the first contribution to NPS?",
+                            a: "Making your first contribution is the final step to activating your NPS account. After your PRAN is generated, you can log in to the <a href='https://enps.nsdl.com' target='_blank' class='text-blue-600 hover:underline'>eNPS portal</a> using your credentials. Navigate to the 'Contribution' section and select the amount you wish to contribute. The minimum initial contribution for a Tier I account is ₹500, and for a Tier II account, it is ₹1,000. You can pay online using a debit card, credit card, or net banking. Upon successful payment, the units will be credited to your account based on your selected investment scheme and Pension Fund Manager (PFM)."
+                        },
+                    ]
+                },
+                {
+                    name: "Account Management",
+                    id: "account-management",
+                    questions: [
+                        {
+                            q: "How to change my investment options?",
+                            a: "NPS offers flexibility to change your investment strategy. You can change your investment option (Active Choice or Auto Choice) and the allocation between asset classes (E for Equity, C for Corporate Bonds, G for Government Securities) once a financial year. The process is simple and can be done online. Log in to your account on the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA website</a>. Under the 'Transact Online' or a similar tab, you will find an option to 'Change Scheme Preference'. You can then select a new Pension Fund Manager (PFM) or modify your allocation mix. The change takes effect from the next working day, and there is no charge for this transaction."
+                        },
+                        {
+                            q: "How to change my pension fund manager?",
+                            a: "You can change your Pension Fund Manager (PFM) once per financial year to optimize your returns. To do so, log in to your NPS account on the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>. Look for the 'Change PFM' or 'Switch Pension Fund Manager' option, which is usually found under the 'Scheme Preference' section. A list of all PFRDA-registered PFMs will be available for you to choose from. After selecting a new PFM, you must confirm the change using an OTP sent to your registered mobile number. This change will be effective from the next contribution, and all future contributions will be managed by the new PFM."
+                        },
+                        {
+                            q: "How to update my mobile number and email ID in NPS?",
+                            a: "Keeping your contact details updated is crucial for receiving important NPS updates and OTPs. You can update your mobile number and email ID online by logging in to the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA website</a>. After logging in, navigate to the 'Update Profile' or 'Change Personal Details' section. You'll be asked to provide the new contact information. The system will send an OTP to both your old and new mobile numbers or email IDs to verify the change. Once you enter the OTPs, the details will be updated almost instantly. It's a quick and secure way to ensure you're always in the loop regarding your NPS account."
+                        },
+                        {
+                            q: "How to link my Aadhaar with my NPS account?",
+                            a: "Linking your Aadhaar with your NPS account streamlines the KYC process and simplifies future transactions. To link them, log in to your NPS account on the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>. There will be an option for 'Aadhaar Seeding' or a similar title. You'll need to enter your Aadhaar number and consent to the e-KYC verification. An OTP will be sent to the mobile number registered with your Aadhaar. After successful OTP authentication, the Aadhaar will be linked. It’s a mandatory step for government sector employees and highly recommended for all other subscribers to ensure a smooth withdrawal and exit process."
+                        },
+                    ]
+                },
+                {
+                    name: "Contributions & Claims",
+                    id: "contributions-claims",
+                    questions: [
+                        {
+                            q: "How to make a regular contribution to NPS online?",
+                            a: "Making contributions online is convenient and instant. Simply log in to the <a href='https://enps.nsdl.com' target='_blank' class='text-blue-600 hover:underline'>eNPS portal</a> using your PRAN and password. Click on the 'Contribute Online' tab. You'll need to verify your PRAN with an OTP sent to your mobile or email. Once verified, you can select whether you want to contribute to your Tier I or Tier II account and specify the amount. The system will calculate the total amount including any applicable charges. You can then make the payment using various online methods like net banking, debit/credit cards, or UPI. The units will be allocated on the same day if the contribution is made before the cut-off time, which is generally 9:30 AM."
+                        },
+                        {
+                            q: "How to withdraw from NPS (Partial Withdrawal)?",
+                            a: "Partial withdrawals are allowed under specific circumstances after your account has been active for at least 3 years. These include higher education of children, marriage of children, construction or purchase of a house, or medical emergencies for self, spouse, children, or parents. You can withdraw up to 25% of your total personal contributions (excluding employer contributions). To initiate a partial withdrawal, log in to the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>, fill the online withdrawal form (Form-601), and upload the required supporting documents. The request will then be processed by the CRA."
+                        },
+                        {
+                            q: "How to withdraw from NPS at maturity or retirement?",
+                            a: "You become eligible for full withdrawal from your NPS account upon reaching the age of 60. You have two main options: 1) Withdraw 100% of your corpus if the total amount is ₹5 lakh or less. 2) If the corpus exceeds ₹5 lakh, you can withdraw up to 60% as a tax-free lump sum. The remaining 40% must be used to purchase a mandatory annuity plan from an Annuity Service Provider (ASP) of your choice to receive a regular monthly pension. The withdrawal process is initiated online through the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>. You will need to fill out a form, choose your ASP, and upload your KYC documents."
+                        },
+                        {
+                            q: "How to claim tax benefits for NPS contributions?",
+                            a: "NPS is one of the most tax-efficient investment schemes. You can claim tax benefits under three different sections of the Income Tax Act. First, your contributions are eligible for a deduction of up to ₹1.5 lakh under **Section 80C**. Second, an additional deduction of up to ₹50,000 is available exclusively for NPS contributions under **Section 80CCD (1B)**. Finally, if you are a salaried employee, your employer's contributions (up to 10% of your basic salary + Dearness Allowance) are tax-deductible under **Section 80CCD (2)**. To claim these benefits, you must declare your contributions while filing your income tax return. Remember that the 60% lump sum at maturity is also tax-exempt, making NPS a powerful tax-saving tool."
+                        },
+                    ]
+                },
+                {
+                    name: "Information & Services",
+                    id: "info-services",
+                    questions: [
+                        {
+                            q: "How to check my NPS account balance and statement?",
+                            a: "Regularly checking your account is essential to track your investments. You can access your account details by logging in to the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a> using your PRAN and password. Once logged in, you will be able to see your current account balance, a breakdown of your investments, and the NAV (Net Asset Value) of your pension funds. You can also download a detailed Statement of Transaction (SoT), which provides a comprehensive record of all your contributions and withdrawals, along with the returns generated. This statement is useful for reviewing your portfolio's performance and for income tax purposes."
+                        },
+                        {
+                            q: "How to activate a T-PIN?",
+                            a: "The T-PIN, or Telephone Personal Identification Number, is a 4-digit number that allows you to access your NPS account information over the phone. To activate it, you need to call the CRA's toll-free number at 1800 2100 080. You will be prompted to enter your PRAN. After this, the system will guide you through a verification process by asking for a few personal details. Once your identity is confirmed, a new T-PIN will be generated and sent to your registered mobile number. This T-PIN is an extra layer of security and is useful for quickly getting information from the call center without needing to log in to the website."
+                        },
+                        {
+                            q: "How to reset my NPS portal password?",
+                            a: "It's easy to reset your NPS password if you forget it. On the login page of the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>, click on the 'Forgot Password' link. You will be given two options for resetting it: using a secret question or an OTP. The OTP method is faster; you just need to enter your PRAN, date of birth, and then a captcha. An OTP will be sent to your registered mobile number and email ID. After entering the OTP, you can set a new password of your choice. It's recommended to choose a strong password that you can remember easily but is difficult for others to guess, and to change it periodically for security."
+                        },
+                        {
+                            q: "How to check the status of my NPS claim?",
+                            a: "After submitting a request for withdrawal or any other service, you can easily track its status online. To do this, log in to your account on the <a href='https://cra-nsdl.com/CRA/' target='_blank' class='text-blue-600 hover:underline'>CRA portal</a>. Look for a section like 'Track Your Request Status' or 'Grievance & Enquiry'. You will need to enter the acknowledgment number that you received when you submitted your claim. The portal will then display the current status of your request, including the date it was received and its stage of processing. This feature helps you stay informed about your application's progress and allows you to follow up if there are any delays."
+                        },
+                    ]
+                }
+            ]
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabsContainer = document.getElementById('tabs');
+            const tabContentContainer = document.getElementById('tab-content');
+
+            npsData.categories.forEach((category, index) => {
+                const tabButton = document.createElement('button');
+                tabButton.textContent = category.name;
+                tabButton.className = `px-3 py-2 font-medium text-center border-b-2 transition duration-300 ease-in-out ${index === 0 ? 'tab-active' : 'tab-inactive'}`;
+                tabButton.dataset.target = category.id;
+                tabsContainer.appendChild(tabButton);
+
+                const contentDiv = document.createElement('div');
+                contentDiv.id = category.id;
+                contentDiv.className = index === 0 ? '' : 'hidden';
+                
+                const accordionContainer = document.createElement('div');
+                accordionContainer.className = 'space-y-4';
+
+                category.questions.forEach(item => {
+                    const accordionItem = document.createElement('div');
+                    accordionItem.className = 'accordion-item border border-gray-200 rounded-lg';
+                    
+                    const header = document.createElement('button');
+                    header.className = 'accordion-header flex justify-between items-center w-full p-4 text-left font-medium text-gray-700 focus:outline-none';
+                    header.innerHTML = `
+                        <span>${item.q}</span>
+                        <span class="accordion-arrow text-[#C0A080] transform">▼</span>
+                    `;
+                    
+                    const content = document.createElement('div');
+                    content.className = 'accordion-content';
+                    content.innerHTML = `<div class="p-4 border-t border-gray-200 text-gray-600 bg-gray-50 rounded-b-lg">${item.a}</div>`;
+                    
+                    accordionItem.appendChild(header);
+                    accordionItem.appendChild(content);
+                    accordionContainer.appendChild(accordionItem);
+                });
+                
+                contentDiv.appendChild(accordionContainer);
+                tabContentContainer.appendChild(contentDiv);
+            });
+
+            tabsContainer.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const targetId = e.target.dataset.target;
+                    
+                    tabsContainer.querySelectorAll('button').forEach(btn => {
+                        btn.className = btn.className.replace('tab-active', 'tab-inactive');
+                    });
+                    
+                    e.target.className = e.target.className.replace('tab-inactive', 'tab-active');
+                    
+                    tabContentContainer.querySelectorAll('div[id]').forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    document.getElementById(targetId).classList.remove('hidden');
+                }
+            });
+
+            tabContentContainer.addEventListener('click', (e) => {
+                const header = e.target.closest('.accordion-header');
+                if (header) {
+                    const item = header.parentElement;
+                    item.classList.toggle('open');
+                }
+            });
+
+            const ctx = document.getElementById('questionsChart').getContext('2d');
+            const chartData = {
+                labels: npsData.categories.map(c => c.name),
+                datasets: [{
+                    label: 'Number of Questions',
+                    data: npsData.categories.map(c => c.questions.length),
+                    backgroundColor: [
+                        '#D3B89A',
+                        '#E4CDB6',
+                        '#C0A080',
+                        '#A07D5A'
+                    ],
+                    borderColor: '#FDFBF8',
+                    borderWidth: 3,
+                    hoverOffset: 4
+                }]
+            };
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#4A4A4A',
+                                font: {
+                                    size: 14,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed + ' questions';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+
+            const submitButton = document.getElementById('submitButton');
+            const promptInput = document.getElementById('promptInput');
+            const loadingIndicator = document.getElementById('loading');
+            const responseContainer = document.getElementById('responseContainer');
+            const responseOutput = document.getElementById('responseOutput');
+            const citationLinks = document.getElementById('citationLinks');
+            const copyButton = document.getElementById('copyButton');
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const handleApiRequest = async () => {
+                const userPrompt = promptInput.value.trim();
+                if (!userPrompt) {
+                    return;
+                }
+
+                submitButton.disabled = true;
+                loadingIndicator.classList.remove('hidden');
+                responseContainer.classList.remove('hidden');
+                responseOutput.textContent = '';
+                citationLinks.innerHTML = '';
+                copyButton.classList.add('hidden');
+
+                const systemPrompt = "You are an expert on the National Pension Scheme (NPS) in India. Provide concise, step-by-step answers to 'how-to' questions. Be helpful and informative. Ensure your answers are grounded in real-time, accurate information.";
+                const payload = {
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    tools: [{ "google_search": {} }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                let retries = 0;
+                const maxRetries = 3;
+                let delay = 1000;
+
+                while (retries < maxRetries) {
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (!response.ok) {
+                            if (response.status === 429) {
+                                throw new Error('Rate limit exceeded');
+                            }
+                            throw new Error(`API error: ${response.statusText}`);
+                        }
+
+                        const result = await response.json();
+                        const candidate = result.candidates?.[0];
+                        
+                        if (candidate && candidate.content?.parts?.[0]?.text) {
+                            const text = candidate.content.parts[0].text;
+                            responseOutput.textContent = text;
+                            copyButton.classList.remove('hidden');
+
+                            let sources = [];
+                            const groundingMetadata = candidate.groundingMetadata;
+                            if (groundingMetadata && groundingMetadata.groundingAttributions) {
+                                sources = groundingMetadata.groundingAttributions
+                                    .map(attribution => ({
+                                        uri: attribution.web?.uri,
+                                        title: attribution.web?.title,
+                                    }))
+                                    .filter(source => source.uri && source.title);
+                            }
+
+                            if (sources.length > 0) {
+                                citationLinks.innerHTML = '<p class="font-bold mt-2">Sources:</p>';
+                                sources.forEach(source => {
+                                    const link = document.createElement('a');
+                                    link.href = source.uri;
+                                    link.textContent = source.title;
+                                    link.target = "_blank";
+                                    link.className = "block text-blue-600 hover:underline mb-1";
+                                    citationLinks.appendChild(link);
+                                });
+                            }
+                        } else {
+                            responseOutput.textContent = "Sorry, I couldn't generate an answer for that. Please try rephrasing your question.";
+                        }
+                        break;
+                    } catch (error) {
+                        retries++;
+                        if (retries < maxRetries) {
+                            await new Promise(res => setTimeout(res, delay));
+                            delay *= 2;
+                        } else {
+                            responseOutput.textContent = `Error: ${error.message}. Please try again later.`;
+                        }
+                    }
+                }
+
+                loadingIndicator.classList.add('hidden');
+                submitButton.disabled = false;
+            };
+
+            submitButton.addEventListener('click', handleApiRequest);
+            promptInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleApiRequest();
+                }
+            });
+
+            copyButton.addEventListener('click', () => {
+                const textToCopy = responseOutput.textContent;
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = 'Copied!';
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
